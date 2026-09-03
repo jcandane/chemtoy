@@ -309,7 +309,7 @@ class ImageDetector(Detector2D):
     kind: str = "image"
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        Detector2D.__post_init__(self)
 
         self.fill_fraction = _validate_fill_fraction(
             self.fill_fraction,
