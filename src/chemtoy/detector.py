@@ -35,12 +35,12 @@ Array = np.ndarray
 
 
 # ---------------------------------------------------------------------
-# Helpers
+# Validation helpers
 # ---------------------------------------------------------------------
 
 
 def _validate_shape(
-    shape: tuple[int, int],
+    shape: tuple[int, int] | list[int],
 ) -> tuple[int, int]:
     """
     Validate and normalize a detector shape.
@@ -57,12 +57,13 @@ def _validate_shape(
     """
 
     if len(shape) != 2:
-        raise ValueError("shape must be a tuple of length 2: (height, width).")
+        raise ValueError("shape must have length 2: (height, width).")
 
-    height, width = int(shape[0]), int(shape[1])
+    height = int(shape[0])
+    width = int(shape[1])
 
     if height <= 0 or width <= 0:
-        raise ValueError("detector dimensions must be positive.")
+        raise ValueError("detector height and width must be positive.")
 
     return height, width
 
@@ -71,7 +72,7 @@ def _validate_fill_fraction(
     fill_fraction: float,
 ) -> float:
     """
-    Validate how much of the detector the object should occupy.
+    Validate object fill fraction.
     """
 
     fill_fraction = float(fill_fraction)
@@ -98,34 +99,39 @@ def _validate_positive(
     return value
 
 
-def _coordinate_axis(
+def _centered_axis(
     size: int,
-    spacing: float,
+    spacing: float = 1.0,
 ) -> Array:
     """
-    Build a centered coordinate axis.
+    Return a centered detector coordinate axis.
 
-    For size 5 and spacing 1, this returns:
+    Examples
+    --------
+    size = 5, spacing = 1
 
         [-2, -1, 0, 1, 2]
 
-    For size 4 and spacing 1, this returns:
+    size = 4, spacing = 1
 
         [-1.5, -0.5, 0.5, 1.5]
     """
 
     center = (size - 1) / 2.0
 
-    axis = (
-        np.arange(size, dtype=np.float32)
-        - center
+    axis = np.arange(
+        size,
+        dtype=np.float32,
     )
 
-    return axis * np.float32(spacing)
+    return (
+        axis
+        - np.float32(center)
+    ) * np.float32(spacing)
 
 
 # ---------------------------------------------------------------------
-# Base detector behavior
+# Base detector
 # ---------------------------------------------------------------------
 
 
@@ -138,31 +144,54 @@ class Detector2D:
     ----------
     shape
         Detector shape as (height, width).
+
+    Notes
+    -----
+    This class only knows about a rectangular 2D grid.
+    Subclasses add semantic meaning to the grid.
     """
 
-    shape: tuple[int, int] = (128, 128)
+    shape: tuple[int, int] | list[int] = (128, 128)
+
+    kind: str = "detector"
 
     def __post_init__(self) -> None:
-        Detector2D.__post_init__(self)
+        """
+        Validate base detector fields.
+
+        Do not call Detector2D.__post_init__ from inside this method.
+        Child classes may call this method explicitly.
+        """
+
+        self.shape = _validate_shape(
+            self.shape,
+        )
 
     @property
     def height(self) -> int:
+        """
+        Detector height in pixels.
+        """
+
         return self.shape[0]
 
     @property
     def width(self) -> int:
+        """
+        Detector width in pixels.
+        """
+
         return self.shape[1]
 
     @property
     def center(self) -> Array:
         """
-        Pixel coordinate of the detector center.
+        Detector center in pixel coordinates.
 
-        Returned as
-
-            [x_center, y_center]
-
-        because image coordinates usually use x before y.
+        Returns
+        -------
+        ndarray
+            Array [x_center, y_center].
         """
 
         return np.array(
@@ -184,13 +213,13 @@ class Detector2D:
             Arrays of shape (height, width).
         """
 
-        y = np.arange(
-            self.height,
+        x = np.arange(
+            self.width,
             dtype=np.float32,
         )
 
-        x = np.arange(
-            self.width,
+        y = np.arange(
+            self.height,
             dtype=np.float32,
         )
 
@@ -207,7 +236,7 @@ class Detector2D:
         dtype=np.float32,
     ) -> Array:
         """
-        Allocate an empty detector image.
+        Allocate a detector array filled with zeros.
         """
 
         return np.zeros(
@@ -220,7 +249,7 @@ class Detector2D:
         dtype=np.float32,
     ) -> Array:
         """
-        Allocate a detector image filled with ones.
+        Allocate a detector array filled with ones.
         """
 
         return np.ones(
@@ -233,7 +262,7 @@ class Detector2D:
         xy: Array,
     ) -> Array:
         """
-        Test whether pixel coordinates lie inside the detector.
+        Test whether pixel coordinates are inside the detector.
 
         Parameters
         ----------
@@ -242,8 +271,8 @@ class Detector2D:
 
         Returns
         -------
-        mask
-            Boolean array of shape (N,).
+        ndarray
+            Boolean mask of shape (N,).
         """
 
         xy = np.asarray(
@@ -266,7 +295,7 @@ class Detector2D:
 
 
 # ---------------------------------------------------------------------
-# Real-space image detector
+# Image detector
 # ---------------------------------------------------------------------
 
 
@@ -285,18 +314,19 @@ class ImageDetector(Detector2D):
         object should occupy.
 
     background
-        Background value used by image renderers.
+        Background image value.
 
     foreground
-        Foreground value used by image renderers.
+        Foreground image value.
 
     pixel_size
         Optional real-space pixel size.
 
-        For now this is metadata only. Projection can either use this
-        later as Å/pixel, or continue using automatic fit-to-detector
-        scaling for toy examples.
+        For now, this is metadata only. The toy projector uses automatic
+        fit-to-detector scaling unless project.py later chooses otherwise.
     """
+
+    shape: tuple[int, int] | list[int] = (128, 128)
 
     fill_fraction: float = 0.90
 
@@ -309,7 +339,13 @@ class ImageDetector(Detector2D):
     kind: str = "image"
 
     def __post_init__(self) -> None:
-        Detector2D.__post_init__(self)
+        """
+        Validate image detector fields.
+        """
+
+        Detector2D.__post_init__(
+            self,
+        )
 
         self.fill_fraction = _validate_fill_fraction(
             self.fill_fraction,
@@ -336,24 +372,24 @@ class ImageDetector(Detector2D):
         """
 
         return (
-            min(self.shape)
+            min(self.height, self.width)
             * 0.5
             * self.fill_fraction
         )
 
-    def coordinate_grid(
-        self,
-    ) -> tuple[Array, Array]:
+    def coordinate_grid(self) -> tuple[Array, Array]:
         """
         Centered real-space detector coordinates.
 
-        If pixel_size is None, one pixel is treated as one coordinate
-        unit.
-
         Returns
         -------
-        x, y
+        xx, yy
             Arrays of shape (height, width).
+
+        Notes
+        -----
+        If pixel_size is None, one pixel corresponds to one coordinate
+        unit.
         """
 
         spacing = (
@@ -362,12 +398,12 @@ class ImageDetector(Detector2D):
             else self.pixel_size
         )
 
-        x = _coordinate_axis(
+        x = _centered_axis(
             self.width,
             spacing,
         )
 
-        y = _coordinate_axis(
+        y = _centered_axis(
             self.height,
             spacing,
         )
@@ -380,59 +416,22 @@ class ImageDetector(Detector2D):
 
         return xx, yy
 
-    def world_to_pixel(
-        self,
-        xy: Array,
-        scale: float,
-    ) -> Array:
-        """
-        Convert centered 2D coordinates to pixel coordinates.
-
-        Parameters
-        ----------
-        xy
-            Array of shape (N, 2), centered around zero.
-
-        scale
-            Multiplicative scale from coordinate units to pixels.
-
-        Returns
-        -------
-        pixel_xy
-            Array of shape (N, 2), with columns x, y.
-        """
-
-        xy = np.asarray(
-            xy,
-            dtype=np.float32,
-        )
-
-        if xy.ndim != 2 or xy.shape[1] != 2:
-            raise ValueError("xy must have shape (N, 2).")
-
-        pixel_xy = (
-            xy * np.float32(scale)
-            + self.center
-        )
-
-        return pixel_xy.astype(np.float32)
-
     def fit_scale(
         self,
         xy: Array,
     ) -> float:
         """
-        Compute an automatic scale so coordinates fit inside the image.
+        Compute a scale factor so projected coordinates fit in the image.
 
         Parameters
         ----------
         xy
-            Array of shape (N, 2), centered projected coordinates.
+            Centered 2D projected coordinates with shape (N, 2).
 
         Returns
         -------
         float
-            Scale factor from coordinate units to pixels.
+            Coordinate-to-pixel scale factor.
         """
 
         xy = np.asarray(
@@ -442,6 +441,9 @@ class ImageDetector(Detector2D):
 
         if xy.ndim != 2 or xy.shape[1] != 2:
             raise ValueError("xy must have shape (N, 2).")
+
+        if xy.shape[0] == 0:
+            return 1.0
 
         radius = float(
             np.linalg.norm(
@@ -455,9 +457,44 @@ class ImageDetector(Detector2D):
 
         return self.image_radius / radius
 
+    def world_to_pixel(
+        self,
+        xy: Array,
+        scale: float,
+    ) -> Array:
+        """
+        Convert centered 2D coordinates into pixel coordinates.
+
+        Parameters
+        ----------
+        xy
+            Array of shape (N, 2), centered around zero.
+
+        scale
+            Multiplicative coordinate-to-pixel scale.
+
+        Returns
+        -------
+        ndarray
+            Pixel coordinates of shape (N, 2), with columns x, y.
+        """
+
+        xy = np.asarray(
+            xy,
+            dtype=np.float32,
+        )
+
+        if xy.ndim != 2 or xy.shape[1] != 2:
+            raise ValueError("xy must have shape (N, 2).")
+
+        return (
+            xy * np.float32(scale)
+            + self.center[None, :]
+        ).astype(np.float32)
+
 
 # ---------------------------------------------------------------------
-# Reciprocal-space diffraction detector
+# Diffraction detector
 # ---------------------------------------------------------------------
 
 
@@ -475,24 +512,26 @@ class DiffractionDetector(Detector2D):
         Maximum reciprocal-space coordinate along the smaller detector
         dimension.
 
-        This is a toy parameter for now. Later it can be connected to
-        wavelength, detector distance, pixel size, and scattering angle.
-
     beam_center
-        Optional beam center as (x, y). If None, the center of the
-        detector is used.
+        Optional beam center as (x, y). If None, detector center is used.
 
     log_scale
-        Whether visualization or later rendering should prefer log-scaled
-        intensities.
+        Whether visualization should prefer log intensity.
 
     epsilon
-        Small positive value for safe log transforms.
+        Small positive value used in safe log transforms.
+
+    Notes
+    -----
+    This class does not compute diffraction. It only defines the
+    reciprocal-space grid and associated detector metadata.
     """
+
+    shape: tuple[int, int] | list[int] = (128, 128)
 
     q_max: float = 1.0
 
-    beam_center: tuple[float, float] | None = None
+    beam_center: tuple[float, float] | list[float] | None = None
 
     log_scale: bool = True
 
@@ -501,7 +540,13 @@ class DiffractionDetector(Detector2D):
     kind: str = "diffraction"
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        """
+        Validate diffraction detector fields.
+        """
+
+        Detector2D.__post_init__(
+            self,
+        )
 
         self.q_max = _validate_positive(
             self.q_max,
@@ -520,7 +565,7 @@ class DiffractionDetector(Detector2D):
         if self.beam_center is not None:
 
             if len(self.beam_center) != 2:
-                raise ValueError("beam_center must be (x, y).")
+                raise ValueError("beam_center must have length 2: (x, y).")
 
             self.beam_center = (
                 float(self.beam_center[0]),
@@ -532,11 +577,14 @@ class DiffractionDetector(Detector2D):
         """
         Beam center in pixel coordinates.
 
-        Returned as [x_center, y_center].
+        Returns
+        -------
+        ndarray
+            Array [x_center, y_center].
         """
 
         if self.beam_center is None:
-            return super().center
+            return Detector2D.center.fget(self)
 
         return np.array(
             self.beam_center,
@@ -544,22 +592,14 @@ class DiffractionDetector(Detector2D):
         )
 
     @property
-    def q_grid(
-        self,
-    ) -> tuple[Array, Array]:
+    def q_grid(self) -> tuple[Array, Array]:
         """
-        Reciprocal-space detector grid.
+        Reciprocal-space coordinate grid.
 
         Returns
         -------
         qx, qy
             Arrays of shape (height, width).
-
-        Notes
-        -----
-        This is a simple centered square reciprocal-space grid.
-
-        It is not yet tied to physical instrument parameters.
         """
 
         half_size = min(
@@ -567,10 +607,7 @@ class DiffractionDetector(Detector2D):
             self.width,
         ) / 2.0
 
-        q_spacing = (
-            self.q_max
-            / half_size
-        )
+        q_spacing = self.q_max / half_size
 
         qx_axis = (
             np.arange(
@@ -597,11 +634,9 @@ class DiffractionDetector(Detector2D):
         return qx, qy
 
     @property
-    def q_radius_grid(
-        self,
-    ) -> Array:
+    def q_radius_grid(self) -> Array:
         """
-        Radial reciprocal-space coordinate.
+        Radial reciprocal-space coordinate grid.
         """
 
         qx, qy = self.q_grid
@@ -616,9 +651,9 @@ class DiffractionDetector(Detector2D):
         intensity: Array,
     ) -> Array:
         """
-        Apply the detector's preferred intensity transform.
+        Apply detector-preferred intensity transform.
 
-        For now this is mainly useful for future diffraction visualization.
+        This is mostly for future diffraction visualization.
         """
 
         intensity = np.asarray(
@@ -630,8 +665,7 @@ class DiffractionDetector(Detector2D):
             return intensity
 
         return np.log1p(
-            intensity
-            + np.float32(self.epsilon)
+            intensity + np.float32(self.epsilon)
         ).astype(np.float32)
 
 
@@ -665,18 +699,19 @@ def make_detector(
         }
     """
 
-    if "kind" not in config:
-        raise KeyError("detector config must contain 'kind'.")
+    if config is None:
+        config = {}
 
     kind = str(
-        config["kind"]
+        config.get(
+            "kind",
+            "image",
+        )
     ).lower().strip()
 
-    shape = tuple(
-        config.get(
-            "shape",
-            (128, 128),
-        )
+    shape = config.get(
+        "shape",
+        (128, 128),
     )
 
     if kind == "image":
