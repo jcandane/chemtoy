@@ -1,0 +1,40 @@
+# .github/workflows/context.yml
+
+name: Build Repository Context
+
+on:
+  workflow_dispatch:
+
+jobs:
+  context:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate context.md
+        run: |
+          python context/context.py
+
+      - name: Commit context.md
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add context/context.md
+
+          if git diff --cached --quiet; then
+            echo "No context changes to commit."
+          else
+            git commit -m "Update repository context"
+            git push
+          fi
