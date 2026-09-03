@@ -1,0 +1,48 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chemtoy"
+version = "0.1.0"
+description = "Toy forward simulators for chemical and structural biology data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+authors = [
+  { name = "ChemToy Developers" }
+]
+
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "pyyaml",
+  "requests",
+  "MDAnalysis",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+  "black",
+  "ipykernel",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
