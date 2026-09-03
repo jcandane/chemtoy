@@ -143,7 +143,7 @@ class Detector2D:
     shape: tuple[int, int] = (128, 128)
 
     def __post_init__(self) -> None:
-        self.shape = _validate_shape(self.shape)
+        Detector2D.__post_init__(self)
 
     @property
     def height(self) -> int:
