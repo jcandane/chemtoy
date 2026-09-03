@@ -1,0 +1,106 @@
+{
+  "experiment": {
+    "name": "quick_pdb_1TIM",
+    "output_dir": "results/quick_pdb_1TIM"
+  },
+  "source": {
+    "kind": "pdb",
+    "id": "1TIM"
+  },
+  "structure": {
+    "name": "1TIM",
+    "path": "data/sources/pdb/1TIM.pdb",
+    "n_atoms": 3740,
+    "n_residues": 494,
+    "n_segments": 2,
+    "radius": 40.111202239990234,
+    "extent": [
+      53.66600036621094,
+      76.76000213623047,
+      48.130001068115234
+    ],
+    "elements_available": true,
+    "masses_available": true
+  },
+  "sampling": {
+    "n": 64,
+    "mode": "so3",
+    "angles_shape": [
+      64,
+      3
+    ],
+    "angle_columns": [
+      "theta",
+      "phi",
+      "psi"
+    ]
+  },
+  "detector": {
+    "kind": "image",
+    "shape": [
+      128,
+      128
+    ],
+    "fill_fraction": 0.9,
+    "background": 1.0,
+    "foreground": 0.0,
+    "pixel_size": null
+  },
+  "projection": {
+    "sigma": 1.25,
+    "truncate": 4.0,
+    "normalize": true
+  },
+  "outputs": {
+    "images_shape": [
+      64,
+      128,
+      128
+    ],
+    "images_flat_shape": [
+      64,
+      16384
+    ],
+    "images_npy": "images.npy",
+    "images_flat_npy": "images_flat.npy",
+    "angles_npy": "angles.npy",
+    "montage_png": "montage.png",
+    "png_directory": "pngs"
+  },
+  "raw_config": {
+    "experiment": {
+      "name": "quick_pdb_1TIM",
+      "output_dir": "results"
+    },
+    "source": {
+      "kind": "pdb",
+      "id": "1TIM"
+    },
+    "sampling": {
+      "n": 64,
+      "mode": "so3",
+      "seed": 0,
+      "psi": 0.0
+    },
+    "detector": {
+      "kind": "image",
+      "shape": [
+        128,
+        128
+      ],
+      "fill_fraction": 0.9
+    },
+    "projection": {
+      "sigma": 1.25,
+      "truncate": 4.0,
+      "normalize": true
+    },
+    "visualization": {
+      "montage_max_images": 36,
+      "montage_columns": 6,
+      "save_individual": true,
+      "individual_max_images": 16,
+      "normalize": false
+    }
+  }
+}
