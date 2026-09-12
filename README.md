@@ -2,6 +2,8 @@
 
 ChemToy is a small Python package for generating toy structural-biology datasets from molecular structures.
 
+idealization of stuff found here: [EMPIAR](https://www.ebi.ac.uk/empiar/)
+
 The initial goal is simple:
 
 > Take a molecular structure, sample many 3D orientations, project each orientation into a 2D toy CryoEM-like image, and save the result as a NumPy array for manifold learning experiments.
